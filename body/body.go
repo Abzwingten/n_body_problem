@@ -32,7 +32,7 @@ func (b Body) PrintString() string {
 		b.Name, b.Mass, b.Velocity.X, b.Velocity.Y, b.Position.X, b.Position.Y, b.Radius)
 }
 
-func (b *Body) ComputeAcceleration(other_planets []*Body) {
+func (b *Body) ComputeAcceleration(other_planets []*Body, c chan vector.Vector) {
 	deltaAcc := vector.Vector{0, 0, 0}
 	for _, b2 := range planets {
 		if b == b2 {
@@ -46,7 +46,6 @@ func (b *Body) ComputeAcceleration(other_planets []*Body) {
 	}
 	b.AccessChannel <- deltaAcc
 }
-
 
 func (b Body) Collides(another_planet *Body) bool {
 	if &b == another_planet {
