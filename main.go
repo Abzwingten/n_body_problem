@@ -31,7 +31,7 @@ const (
 )
 
 const (
-	frame_rate = 10
+	frame_rate = 60
 	font_path  = "assets/Futura_book.ttf"
 	font_size  = 16
 )
@@ -68,10 +68,10 @@ func (w Universe) universe_time() string {
 
 func (w Universe) has_escaped(body *body.Body) bool {
 	star := w.bodies[0]
-	radius := utils.DistanceTo(&body.Position, &star.Position)
+	distance := utils.DistanceTo(&body.Position, &star.Position)
 	maxDistance := fmath.Hypot(float32(w.width), float32(w.height)) * 10.0 * w.zoom * w.mass_per_planet
 
-	return radius > maxDistance && body.Velocity.Length() > fmath.Sqrt(2.0*G*star.Mass/radius)
+	return distance > maxDistance && body.Velocity.Length() > fmath.Sqrt(2.0 * G * star.Mass / distance)
 }
 
 func (w *Universe) remove_body(toRemove *body.Body) {
@@ -92,86 +92,84 @@ func (w *Universe) tick() {
 	if !w.running {
 		return
 	}
-
 	for i := 0; i < w.sec_per_tick; i++ {
 		w.elapsed += 1
 		for _, body := range w.bodies {
 			go body.ComputeAcceleration(w.bodies)
-			// fmt.Printf("Body: %s, Acceleration: %f \n", body.Name, body.Acceleration[0])
-
-		}
-	}
-
-	var escaping []*body.Body
-	var colliding []map[*body.Body]bool
-
-	// Function literal / closure
-	add_collision := func(body1, body2 *body.Body) {
-		fmt.Printf("CRASH! %v AND %v\n", body1.Name, body2.Name)
-		added := false
-		for _, groups := range colliding {
-			if _, ok := groups[body1]; ok {
-				groups[body2] = true
-				added = true
 			}
-			if _, ok := groups[body2]; ok {
-				groups[body1] = true
-				added = true
-			}
-		}
-		if !added {
-			newmap := make(map[*body.Body]bool)
-			newmap[body1] = true
-			newmap[body2] = true
-			colliding = append(colliding, newmap)
-		}
-	}
 
-	for _, body := range w.bodies {
-		deltaAcc := <-body.AccessChannel
-		if !math.IsNaN(float64(deltaAcc[0])) && !math.IsNaN(float64(deltaAcc[1])) {
-			// this happens if bodies start out on top of each other
-			body.Acceleration[0] = deltaAcc[0]
-			body.Acceleration[1] = deltaAcc[1]
-		}
-		body.Velocity.Add(&body.Acceleration)
-		body.Position.Add(&body.Velocity)
 
-		// Check if body is
-		// 1) higher than escape velocity
-		// 2) is more more than 2X screens from center.
-		if w.has_escaped(body) {
-			escaping = append(escaping, body)
-		} else {
-			for _, body2 := range w.bodies {
-				if body == body2 {
-					continue
+		var escaping []*body.Body
+		var colliding []map[*body.Body]bool
+
+		// Function literal / closure
+		add_collision := func(body1, body2 *body.Body) {
+			fmt.Printf("CRASH! %v AND %v\n", body1.Name, body2.Name)
+			added := false
+			for _, groups := range colliding {
+				if _, ok := groups[body1]; ok {
+					groups[body2] = true
+					added = true
 				}
-				if body.Collides(body2) {
-					add_collision(body, body2)
+				if _, ok := groups[body2]; ok {
+					groups[body1] = true
+					added = true
 				}
 			}
-		}
-	}
-
-	// Print escaping
-	for _, escapee := range escaping {
-		fmt.Printf("%v: ESCAPED: %v\n", w.universe_time(), escapee)
-		w.remove_body(escapee)
-	}
-
-	for _, group := range colliding {
-		var big *body.Body
-		for b := range group {
-			if big == nil || b.Radius > big.Radius {
-				big = b
+			if !added {
+				newmap := make(map[*body.Body]bool)
+				newmap[body1] = true
+				newmap[body2] = true
+				colliding = append(colliding, newmap)
 			}
 		}
-		for small := range group {
-			if small != big {
-				big.CollideWith(small)
-				fmt.Printf("%v: COLLISION: %v\n", w.universe_time(), big)
-				w.remove_body(small)
+
+		for _, body := range w.bodies {
+			deltaAcc := <-body.AccessChannel
+			if !math.IsNaN(float64(deltaAcc[0])) && !math.IsNaN(float64(deltaAcc[1])) {
+				// this happens if bodies start out on top of each other
+				body.Acceleration[0] = deltaAcc[0]
+				body.Acceleration[1] = deltaAcc[1]
+			}
+			body.Velocity.Add(&body.Acceleration)
+			body.Position.Add(&body.Velocity)
+
+			// Check if body is
+			// 1) higher than escape velocity
+			// 2) is more more than 2X screens from center.
+			if w.has_escaped(body) {
+				escaping = append(escaping, body)
+			} else {
+				for _, body2 := range w.bodies {
+					if body == body2 {
+						continue
+					}
+					if body.Collides(body2) {
+						add_collision(body, body2)
+					}
+				}
+			}
+		}
+
+		// Print escaping
+		for _, escapee := range escaping {
+			fmt.Printf("%v: ESCAPED: %v\n", w.universe_time(), escapee)
+			w.remove_body(escapee)
+		}
+
+		for _, group := range colliding {
+			var big *body.Body
+			for b := range group {
+				if big == nil || b.Radius > big.Radius {
+					big = b
+				}
+			}
+			for small := range group {
+				if small != big {
+					big.CollideWith(small)
+					fmt.Printf("%v: COLLISION: %v\n", w.universe_time(), big)
+					w.remove_body(small)
+				}
 			}
 		}
 	}
@@ -180,7 +178,7 @@ func (w *Universe) tick() {
 func solarSystem(w, h int) *Universe {
 	universe := &Universe{
 		scale:           1.0,
-		mass_per_planet: 5.5e8,
+		mass_per_planet: 5.5e6,
 		sec_per_tick:    600,
 		running:         true,
 		elapsed:         0,
@@ -190,14 +188,14 @@ func solarSystem(w, h int) *Universe {
 		zoom:            1.0,
 	}
 
-	sun := body.NewBody("Sol", 0, 0, 696_340_000, 1.9885e30, 0.0, 0.0, 0xFFFF00)
+	sun := body.NewBody("Sol", 0, 0, 696_340_000, 1.9885e30, 0.0, 0.0, 0xFFFF00FF)
 	universe.bodies[0] = sun
-	universe.bodies[1] = body.NewBody("Mercury", 46e9, 0, 2_439_700, 0.33011e24, 0.0, 58.98e3, 0xAAFF00)
-	universe.bodies[2] = body.NewBody("Venus", 0, 107.48e9, 6_051_800, 4.86750e24, -35.26e3, 0.0, 0x800000)
-	universe.bodies[3] = body.NewBody("Mars", 0, -206.62e9, 3_389_500, 0.64171e24, 26.50e3, 0.0, 0xFF0000)
-	earth := body.NewBody("Earth", -147.09e9, 0, 6_371_000, 5.9724e24, 0.0, -30.29e3, 0x00BBFF)
+	universe.bodies[1] = body.NewBody("Mercury", 46e9, 0, 2_439_700, 0.33011e24, 0.0, 58.98e3, 0xAAFF00FF)
+	universe.bodies[2] = body.NewBody("Venus", 0, 107.48e9, 6_051_800, 4.86750e24, -35.26e3, 0.0, 0x800000FF)
+	universe.bodies[3] = body.NewBody("Mars", 0, -206.62e9, 3_389_500, 0.64171e24, 26.50e3, 0.0, 0xFF0000FF)
+	earth := body.NewBody("Earth", -147.09e9, 0, 6_371_000, 5.9724e24, 0.0, -30.29e3, 0x00BBFFFF)
 	universe.bodies[4] = earth
-	luna := body.NewBody("Luna", earth.Position[0]-0.3633e9, 0, 1_737_400, 0.07346e24, 0.0, earth.Velocity[1]-1.082e3, 0xC0C0C0)
+	luna := body.NewBody("Luna", earth.Position[0]-0.3633e9, 0, 1_737_400, 0.07346e24, 0.0, earth.Velocity[1]-1.082e3, 0xC0C0C0FF)
 	universe.bodies[5] = luna
 
 	// fmt.Printf("BODIES:\n")
@@ -231,7 +229,6 @@ func run() int {
 	if sec_per_tick > 0 {
 		universe.sec_per_tick = sec_per_tick
 	}
-	fmt.Printf("Dimensions: %d\n", args.Dimensions)
 	if paused {
 		universe.running = false
 	}
@@ -240,7 +237,7 @@ func run() int {
 
 	var window *sdl.Window
 	var renderer *sdl.Renderer
-	var texture *sdl.Texture
+	// var texture *sdl.Texture
 	var err error
 
 	var running_mutex sync.Mutex
@@ -273,15 +270,14 @@ func run() int {
 	if err != nil {
 		fmt.Println(err)
 	}
+	sdl.Do(func() {
+		renderer.Clear()
+	})
 	defer func() {
 		sdl.Do(func() {
 			renderer.Destroy()
 		})
 	}()
-
-	sdl.Do(func() {
-		renderer.Clear()
-	})
 
 	if err = ttf.Init(); err != nil {
 		return 1
@@ -300,17 +296,17 @@ func run() int {
 		})
 	}()
 
-	sdl.Do(func() {
-		texture, err = renderer.CreateTexture(sdl.PIXELFORMAT_ABGR8888, sdl.TEXTUREACCESS_STREAMING, int32(width), int32(height))
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer func() {
-		sdl.Do(func() {
-			texture.Destroy()
-		})
-	}()
+	// sdl.Do(func() {
+	// 	texture, err = renderer.CreateTexture(sdl.PIXELFORMAT_ABGR8888, sdl.TEXTUREACCESS_STREAMING, int32(width), int32(height))
+	// })
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	// defer func() {
+	// 	sdl.Do(func() {
+	// 		texture.Destroy()
+	// 	})
+	// }()
 
 	follow_body := -1
 	center := vec2.T{float32(width / 2), float32(height / 2)}
@@ -339,6 +335,7 @@ func run() int {
 
 	running := true
 	for running {
+		// CONTROLS
 		sdl.Do(func() {
 			for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 				switch t := event.(type) {
@@ -354,11 +351,6 @@ func run() int {
 						running_mutex.Unlock()
 					case sdl.K_SPACE:
 						universe.running = !universe.running
-						if universe.running {
-							fmt.Print("UNPAUSED \n")
-						} else {
-							fmt.Print("PAUSED \n")
-						}
 					case sdl.K_TAB:
 						if follow_body == -1 {
 							follow_body = 1
@@ -373,6 +365,7 @@ func run() int {
 						offset = center
 					case sdl.K_KP_PLUS:
 						universe.sec_per_tick += 1
+						fmt.Println(universe.sec_per_tick)
 					case sdl.K_KP_MINUS:
 						universe.sec_per_tick -= 1
 					}
@@ -386,7 +379,6 @@ func run() int {
 					}
 				case *sdl.MouseWheelEvent:
 					universe.zoom *= fmath.Pow(1.2, float32(t.Y))
-					// fmt.Println(universe.zoom)
 				}
 
 				if follow_body >= 0 && follow_body < len(universe.bodies) {
@@ -395,12 +387,11 @@ func run() int {
 					offset.Sub(&follow_body_position)
 				}
 				if len(universe.bodies) <= 0 {
-					fmt.Println("There are no more bodies, ending sim...")
+					fmt.Println("No bodies left, ending simulation")
 					os.Exit(3)
 				}
 			}
-			renderer.Clear()
-			renderer.SetDrawColor(0, 0, 0, 10)
+			renderer.SetDrawColor(0, 0, 0, 255)
 			renderer.FillRect(&sdl.Rect{0, 0, int32(width), int32(height)})
 		})
 
@@ -409,28 +400,25 @@ func run() int {
 		wait_group := sync.WaitGroup{}
 		for i, body := range universe.bodies {
 			wait_group.Add(1)
-			body_radius_scaled := body.Radius * universe.scale /universe.mass_per_planet
-			// fmt.Printf("%d \n", int32(body_radius_scaled))
 
+			body_radius_scaled := body.Radius * universe.scale / universe.mass_per_planet
 			if body_radius_scaled < MinRadius {
 				body_radius_scaled = MinRadius
 			}
-			body_radius_scaled *= universe.zoom
-			// body_radius_scaled = body_radius_scaled / 32 * universe.zoom
+			body_radius_scaled *= universe.zoom * universe.scale
 
 			screen_position := universe.universe_to_screen(&body.Position)
 			screen_position.Add(&offset)
+			// planet := universe.bodies[i]
+
+			// gfx.CircleColor(renderer, int32(screen_position[0] + body_radius_scaled / 4), int32(screen_position[1] + body_radius_scaled / 4), int32(body_radius_scaled), utils.ColorKeyToSDL(planet.Color))
 
 			go func(i int) {
-				// planet := universe.bodies[i]
+				planet := universe.bodies[i]
 				sdl.Do(func() {
-					// fmt.Println(planet.Name)
-					// fmt.Println(screen_position[0], screen_position[1])
-					// fmt.Println(offset)
-					// fmt.Print("****** \n")
-					gfx.CharacterColor(renderer, int32(screen_position[0]), int32(screen_position[1]), 'X', sdl.Color{255, 0, 0, 255})
-					// renderer.DrawPoint(int32(screen_position[0]), int32(screen_position[1]))
-					// gfx.CircleColor(renderer, int32(screen_position[0]), int32(screen_position[1]), int32(body_radius_scaled), utils.ColorKeyToSDL(planet.Color))
+					// gfx.CharacterColor(renderer, int32(screen_position[0]), int32(screen_position[1]), '*', sdl.Color{255, 0, 0, 255})
+					// gfx.CircleColor(renderer, 200, 200, 50, utils.ColorKeyToSDL(planet.Color))
+					gfx.FilledCircleColor(renderer, int32(screen_position[0] + body_radius_scaled / 4), int32(screen_position[1] + body_radius_scaled / 4), int32(body_radius_scaled), utils.ColorKeyToSDL(planet.Color))
 				})
 				// fmt.Println(int32(body_radius_scaled))
 				wait_group.Done()
@@ -441,8 +429,10 @@ func run() int {
 		sdl.Do(func() {
 			renderer.Present()
 			sdl.Delay(1000 / frame_rate)
-			universe.tick()
+		})
 
+		sdl.Do(func() {
+			universe.tick()
 		})
 	}
 	return 0

@@ -2,7 +2,6 @@ package body
 
 import (
 	"fmt"
-
 	"github.com/ungerik/go3d/vec2"
 	"github.com/ungerik/go3d/fmath"
 )
@@ -28,7 +27,7 @@ func NewBodyVector(name string, position vec2.T, velocity vec2.T, r float32, m f
 	return &Body{name, position, velocity, vec2.T{0, 0}, r, m, make(chan vec2.T), color}
 }
 
-func (b Body) PrintString() string {
+func (b Body) Print_body() string {
 	return fmt.Sprintf("BODY %v: m:%v vel:%v,%v pos:%v,%v r:%v",
 		b.Name, b.Mass, b.Velocity[0], b.Velocity[1], b.Position[0], b.Position[1], b.Radius)
 }
@@ -40,7 +39,7 @@ func (b *Body) ComputeAcceleration(other_planets []*Body) {
 			continue
 		}
 		distance := fmath.Hypot(b.Position[0] - b2.Position[0], b.Position[1] - b2.Position[1])
-		// distance := math.Sqrt(math.Pow(b.Position.X-b2.Position.X, 2) + math.Pow(b.Position.Y-b2.Position.Y, 2))
+		// distance := float32(math.Sqrt(math.Pow(float64(b.Position[0] - b2.Position[1]), 2) + math.Pow(float64(b.Position[0] - b2.Position[1]), 2)))
 		acceleration := vec2.T{(b2.Position[0] - b.Position[0]) / distance, (b2.Position[1] - b.Position[1]) / distance}
 		acceleration.Scale(G * b2.Mass / (distance * distance))
 		deltaAcc.Add(&acceleration)
@@ -59,7 +58,7 @@ func (b Body) Collides(another_planet *Body) bool {
 }
 
 func (b *Body) CollideWith(another_planet *Body) {
-	// Two body problem 
+	// Two body problem
 	// Calculate new radius after collision
 	// Assume another planet is going away
 	new_radius := fmath.Pow(fmath.Pow(b.Radius, 3) + fmath.Pow(another_planet.Radius, 3), 1.0/3.0)

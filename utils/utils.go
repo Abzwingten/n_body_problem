@@ -7,9 +7,10 @@ import (
 
 func ColorKeyToSDL(_color uint32) sdl.Color {
 	var sdlcolor sdl.Color
-	sdlcolor.R = (uint8)(_color >> 16)
-	sdlcolor.G = (uint8)(_color >> 8)
-	sdlcolor.B = (uint8)(_color)
+	sdlcolor.R = (uint8)(_color >> 24)
+	sdlcolor.G = (uint8)(_color >> 16)
+	sdlcolor.B = (uint8)(_color >> 8)
+	sdlcolor.A = (uint8)(_color)
 	return sdlcolor
 }
 
