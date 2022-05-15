@@ -1,16 +1,19 @@
 package utils
 
-func IntPow(a, b int) int {
-	var result int = 1
+import (
+	"github.com/ungerik/go3d/vec2"
+	"github.com/veandco/go-sdl2/sdl"
+)
 
-	for 0 != b {
-		if 0 != (b & 1) {
-			result *= a
+func ColorKeyToSDL(_color uint32) sdl.Color {
+	var sdlcolor sdl.Color
+	sdlcolor.R = (uint8)(_color >> 16)
+	sdlcolor.G = (uint8)(_color >> 8)
+	sdlcolor.B = (uint8)(_color)
+	return sdlcolor
+}
 
-		}
-		b >>= 1
-		a *= a
-	}
-
-	return result
+func DistanceTo(v1, v2 *vec2.T) float32 {
+	a := v1.Sub((*vec2.T)(v2))
+	return a.Length()
 }
