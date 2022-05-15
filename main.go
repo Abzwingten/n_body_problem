@@ -21,6 +21,8 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 
+	"golang.org/x/image/colornames"
+
 	"n_body_problem/body"
 	"n_body_problem/utils"
 )
@@ -34,6 +36,11 @@ const (
 	frame_rate = 60
 	font_path  = "assets/Futura_book.ttf"
 	font_size  = 16
+)
+
+var (
+	width		=	1920
+	height		=	1050
 )
 
 var args struct {
@@ -213,8 +220,11 @@ func run() int {
 	arg.MustParse(&args)
 	sec_per_tick := args.Sec_per_tick
 	zoom := args.Zoom
-	width := args.Dimensions[0]
-	height := args.Dimensions[1]
+	if args.Dimensions != nil {
+		width	=	args.Dimensions[0]
+		height	=	args.Dimensions[1]
+	}
+
 	paused := false
 
 	// Init universe
@@ -238,6 +248,7 @@ func run() int {
 	var window *sdl.Window
 	var renderer *sdl.Renderer
 	// var texture *sdl.Texture
+	var text *sdl.Surface
 	var err error
 
 	var running_mutex sync.Mutex
@@ -295,18 +306,6 @@ func run() int {
 
 		})
 	}()
-
-	// sdl.Do(func() {
-	// 	texture, err = renderer.CreateTexture(sdl.PIXELFORMAT_ABGR8888, sdl.TEXTUREACCESS_STREAMING, int32(width), int32(height))
-	// })
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	// defer func() {
-	// 	sdl.Do(func() {
-	// 		texture.Destroy()
-	// 	})
-	// }()
 
 	follow_body := -1
 	center := vec2.T{float32(width / 2), float32(height / 2)}
@@ -425,6 +424,17 @@ func run() int {
 			}(i)
 		}
 		wait_group.Wait()
+
+		// Clicked-on body info
+		if nearest != nil {
+			nearest_position := universe.universe_to_screen(&nearest.Position)
+			nearest_position.Add(&offset)
+			velocity := nearest.Velocity.Scale(1000)
+			end_velocity := nearest_position.Add(velocity)
+
+			gfx.ThickLineColor(renderer, int32(nearest_position[0]), int32(nearest_position[1]), int32(end_velocity[0]), int32(end_velocity[1]), 20, sdl.Color(colornames.Aquamarine))
+		}
+		universe.universe_time()
 
 		sdl.Do(func() {
 			renderer.Present()

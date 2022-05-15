@@ -39,7 +39,6 @@ func (b *Body) ComputeAcceleration(other_planets []*Body) {
 			continue
 		}
 		distance := fmath.Hypot(b.Position[0] - b2.Position[0], b.Position[1] - b2.Position[1])
-		// distance := float32(math.Sqrt(math.Pow(float64(b.Position[0] - b2.Position[1]), 2) + math.Pow(float64(b.Position[0] - b2.Position[1]), 2)))
 		acceleration := vec2.T{(b2.Position[0] - b.Position[0]) / distance, (b2.Position[1] - b.Position[1]) / distance}
 		acceleration.Scale(G * b2.Mass / (distance * distance))
 		deltaAcc.Add(&acceleration)
