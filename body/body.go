@@ -2,8 +2,8 @@ package body
 
 import (
 	"fmt"
-	"github.com/Abzwingten/vector.git"
 	"math"
+	"github.com/seifertd/go/vector"
 )
 
 const G = 6.674e-11

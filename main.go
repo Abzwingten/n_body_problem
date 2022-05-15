@@ -12,10 +12,16 @@ import(
 
 	"github.com/akamensky/argparse"
 
-	"github.com/Abzwingten/vector.git"
+	"github.com/seifertd/go/vector"
 	"n_body_problem/body"
 	"n_body_problem/utils"
 	"golang.org/x/image/colornames"
+
+	"github.com/faiface/pixel"
+	"github.com/faiface/pixel/imdraw"
+	"github.com/faiface/pixel/pixelgl"
+	"github.com/faiface/pixel/text"
+
 )
 
 
@@ -202,3 +208,4 @@ func run() {
 	if paused {
 		world.running = false
 	}
+}
