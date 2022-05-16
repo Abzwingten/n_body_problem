@@ -19,9 +19,9 @@ import (
 
 	"github.com/veandco/go-sdl2/gfx"
 	"github.com/veandco/go-sdl2/sdl"
-	"github.com/veandco/go-sdl2/ttf"
+	// "github.com/veandco/go-sdl2/ttf"
 
-	"golang.org/x/image/colornames"
+	// "golang.org/x/image/colornames"
 
 	"n_body_problem/body"
 	"n_body_problem/utils"
@@ -76,7 +76,7 @@ func (w Universe) universe_time() string {
 func (w Universe) has_escaped(body *body.Body) bool {
 	star := w.bodies[0]
 	distance := utils.DistanceTo(&body.Position, &star.Position)
-	maxDistance := fmath.Hypot(float32(w.width), float32(w.height)) * 10.0 * w.zoom * w.mass_per_planet
+	maxDistance := fmath.Hypot(float32(w.width), float32(w.height)) * 10.0 * w.scale * w.mass_per_planet
 
 	return distance > maxDistance && body.Velocity.Length() > fmath.Sqrt(2.0 * G * star.Mass / distance)
 }
@@ -248,7 +248,7 @@ func run() int {
 	var window *sdl.Window
 	var renderer *sdl.Renderer
 	// var texture *sdl.Texture
-	var text *sdl.Surface
+	// var text *sdl.Surface
 	var err error
 
 	var running_mutex sync.Mutex
@@ -290,22 +290,22 @@ func run() int {
 		})
 	}()
 
-	if err = ttf.Init(); err != nil {
-		return 1
-	}
-	defer ttf.Quit()
+	// if err = ttf.Init(); err != nil {
+	// 	return 1
+	// }
+	// defer ttf.Quit()
 
-	font, err := ttf.OpenFont(font_path, font_size)
-	if err != nil {
-		fmt.Println(err)
-		return 1
-	}
-	defer func() {
-		sdl.Do(func() {
-			font.Close()
+	// font, err := ttf.OpenFont(font_path, font_size)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return 1
+	// }
+	// defer func() {
+	// 	sdl.Do(func() {
+	// 		font.Close()
 
-		})
-	}()
+	// 	})
+	// }()
 
 	follow_body := -1
 	center := vec2.T{float32(width / 2), float32(height / 2)}
@@ -425,15 +425,15 @@ func run() int {
 		}
 		wait_group.Wait()
 
-		// Clicked-on body info
-		if nearest != nil {
-			nearest_position := universe.universe_to_screen(&nearest.Position)
-			nearest_position.Add(&offset)
-			velocity := nearest.Velocity.Scale(1000)
-			end_velocity := nearest_position.Add(velocity)
+		// // Clicked-on body info
+		// if nearest != nil {
+		// 	nearest_position := universe.universe_to_screen(&nearest.Position)
+		// 	nearest_position.Add(&offset)
+		// 	velocity := nearest.Velocity.Scale(1000)
+		// 	end_velocity := nearest_position.Add(velocity)
 
-			gfx.ThickLineColor(renderer, int32(nearest_position[0]), int32(nearest_position[1]), int32(end_velocity[0]), int32(end_velocity[1]), 20, sdl.Color(colornames.Aquamarine))
-		}
+		// 	gfx.ThickLineColor(renderer, int32(nearest_position[0]), int32(nearest_position[1]), int32(end_velocity[0]), int32(end_velocity[1]), 20, sdl.Color(colornames.Aquamarine))
+		// }
 		universe.universe_time()
 
 		sdl.Do(func() {
