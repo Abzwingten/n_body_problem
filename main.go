@@ -3,6 +3,7 @@ package main
 import (
 	"math"
 	"sync"
+
 	// math_rand "math/rand"
 
 	"fmt"
@@ -15,16 +16,17 @@ import (
 	// "time"
 
 	"github.com/alexflint/go-arg"
+	// "github.com/faiface/pixel"
+	// "github.com/faiface/pixel/imdraw"
+	// "github.com/faiface/pixel/pixelgl"
 
-	"github.com/ungerik/go3d/float64/vec2"
+	rl "github.com/gen2brain/raylib-go/raylib"
+	// "github.com/ungerik/go3d/vec2"
+	"github.com/barnex/fmath"
 
-	"github.com/faiface/pixel"
-	"github.com/faiface/pixel/imdraw"
-	"github.com/faiface/pixel/pixelgl"
-	"github.com/faiface/pixel/text"
 
-	"golang.org/x/image/colornames"
-	"golang.org/x/image/font/basicfont"
+
+	// "golang.org/x/image/colornames"
 
 	"n_body_problem/body"
 	"n_body_problem/utils"
@@ -43,23 +45,23 @@ var (
 var args struct {
 	Dimensions   []int   `arg:"-d,--dimensions" help:"enter window dimensions"`
 	Sec_per_tick int     `arg:"-s,--sec_per_tick"`
-	Zoom         float64 `arg:"-z,--zoom" default:"1"`
+	Zoom         float32 `arg:"-z,--zoom" default:"1"`
 }
 
 type Universe struct {
-	scale           float64
-	mass_per_planet float64
+	scale           float32
+	mass_per_planet float32
 	sec_per_tick    int
 	running         bool
 	elapsed         int
 	bodies          []*body.Body
 	width           int
 	height          int
-	magnitude       float64
+	magnitude       float32
 }
 
-func (w Universe) universe_to_screen(coords *vec2.T) vec2.T {
-	return vec2.T{coords[0] / w.mass_per_planet * w.scale * w.magnitude, coords[1] / w.mass_per_planet * w.scale * w.magnitude}
+func (w Universe) universe_to_screen(coords *rl.Vector2) rl.Vector2 {
+	return rl.Vector2{X: coords.X / w.mass_per_planet * w.scale * w.magnitude, Y: coords.Y / w.mass_per_planet * w.scale * w.magnitude}
 }
 
 func (w Universe) universe_time() string {
@@ -72,10 +74,10 @@ func (w Universe) universe_time() string {
 
 func (w Universe) has_escaped(body *body.Body) bool {
 	star := w.bodies[0]
-	distance := utils.DistanceTo(&body.Position, &star.Position)
-	maxDistance := math.Hypot(float64(w.width), float64(w.height)) * 10.0 * w.magnitude * w.mass_per_planet
+	distance := rl.Vector2Distance(body.Position, star.Position)
+	maxDistance := fmath.Hypot(float32(w.width), float32(w.height)) * 10.0 * w.magnitude * w.mass_per_planet
 
-	return distance > maxDistance && body.Velocity.Length() > math.Sqrt(2.0 * G * star.Mass / distance)
+	return distance > maxDistance && rl.Vector2Length(body.Velocity) > fmath.Sqrt(2.0 * G * star.Mass / distance)
 }
 
 func (w *Universe) remove_body(toRemove *body.Body) {
@@ -129,13 +131,14 @@ func (w *Universe) tick() {
 
 		for _, body := range w.bodies {
 			delta_acc := <-body.AccessChannel
-			if !math.IsNaN(delta_acc[0]) && !math.IsNaN(delta_acc[1]) {
+			if !math.IsNaN(float64(delta_acc.X)) && !math.IsNaN(float64(delta_acc.Y)) {
 				// this happens if bodies start out on top of each other
-				body.Acceleration[0] = delta_acc[0]
-				body.Acceleration[1] = delta_acc[1]
+				body.Acceleration.X = delta_acc.X
+				body.Acceleration.Y = delta_acc.Y
 			}
-			body.Velocity.Add(&body.Acceleration)
-			body.Position.Add(&body.Velocity)
+			body.Velocity = rl.Vector2Add(body.Velocity, body.Acceleration)
+			// body.Velocity.Add(&body.Acceleration)
+			body.Position = rl.Vector2Add(body.Position, body.Velocity)
 
 			// Check if body is
 			// 1) higher than escape velocity
@@ -198,7 +201,7 @@ func solarSystem(w, h int) *Universe {
 	universe.bodies[3] = body.NewBody("Mars", 0, -206.62e9, 3_389_500, 0.64171e24, 26.50e3, 0.0, 0xFF0000FF)
 	earth := body.NewBody("Earth", -147.09e9, 0, 6_371_000, 5.9724e24, 0.0, -30.29e3, 0x00BBFFFF)
 	universe.bodies[4] = earth
-	luna := body.NewBody("Luna", earth.Position[0]-0.3633e9, 0, 1_737_400, 0.07346e24, 0.0, earth.Velocity[1]-1.082e3, 0xFFFFFFFF)
+	luna := body.NewBody("Luna", earth.Position.X - 0.3633e9, 0, 1_737_400, 0.07346e24, 0.0, earth.Velocity.Y - 1.082e3, 0xFFFFFFFF)
 	universe.bodies[5] = luna
 
 	// fmt.Printf("BODIES:\n")
@@ -239,35 +242,38 @@ func run() {
 		universe.running = false
 	}
 
-	// PIXEL INIT part
-	cfg := pixelgl.WindowConfig{
-		Title:  "Bastinda Space Program",
-		Bounds: pixel.R(0, 0, float64(width) * universe.magnitude, float64(height) * universe.magnitude),
-		VSync:  true,
-	}
+	rl.InitWindow(int32(width), int32(height), "Bastinda Space Program")
 
-	win, err := pixelgl.NewWindow(cfg)
-	if err != nil {
-		panic(err)
-	}
+	rl.SetTargetFPS(60)
+
+
 
 	// initialize font
-	basic_atlas := text.NewAtlas(basicfont.Face7x13, text.ASCII)
-	infoTxt := text.New(pixel.V(win.Bounds().Max.X-200*float64(universe.magnitude), win.Bounds().Max.Y-20*float64(universe.magnitude)), basic_atlas)
+	// basic_atlas := text.NewAtlas(basicfont.Face7x13, text.ASCII)
+	// infoTxt := text.New(pixel.V(win.Bounds().Max.X-200*float32(universe.magnitude), win.Bounds().Max.Y-20*float32(universe.magnitude)), basic_atlas)
 
 	follow_body := -1
-	center := vec2.T{float64(width / 2), float64(height / 2)}
+	center := rl.Vector2{X: float32(width / 2), Y: float32(height / 2)}
 	offset := center
 	var nearest *body.Body
 
-	for !win.Closed() && !win.JustPressed(pixelgl.KeyEscape) {
+
+
+	camera := rl.NewCamera2D(offset, rl.Vector2{}, 180, 1)
+
+
+	for !rl.WindowShouldClose() {
+
+		rl.BeginDrawing()
+		rl.ClearBackground(rl.Black)
+		rl.BeginMode2D(camera)
 
 		// CONTROLS
-		if win.JustPressed(pixelgl.KeySpace) {
+		if rl.IsKeyPressed(rl.KeySpace) {
 			universe.running = !universe.running
 		}
 		// switch center from body to body
-		if win.JustPressed(pixelgl.KeyTab) {
+		if rl.IsKeyPressed(rl.KeyTab) {
 			if follow_body == -1 {
 				follow_body = 1
 			} else {
@@ -279,29 +285,29 @@ func run() {
 		}
 
 		// Recenter
-		if win.JustPressed(pixelgl.KeyC) {
+		if rl.IsKeyPressed(rl.KeyC) {
 			follow_body = -1
 			offset = center
 		}
 
 		// Turn off closest vec, accel and info display
-		if win.JustPressed(pixelgl.MouseButtonRight) {
+		if rl.IsMouseButtonPressed(rl.MouseRightButton) {
 			nearest = nil
 		}
 
-		if win.JustPressed(pixelgl.MouseButtonLeft) {
+		if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
 			nearest = nil
-			mouse_coords := win.MousePosition()
-			mouse_coords_vec := vec2.T{mouse_coords.X, mouse_coords.Y}
-			var nearest_distance float64 = 0.0
+			mouse_coords := rl.GetMousePosition()
+			mouse_coords_vec := rl.Vector2{X: mouse_coords.X, Y: mouse_coords.Y}
+			var nearest_distance float32 = 0.0
 			for _, body := range universe.bodies {
 				body_screen := universe.universe_to_screen(&body.Position)
-				body_screen.Add(&offset)
+				body_screen = rl.Vector2Add(body_screen, offset)
 				if nearest == nil {
 					nearest = body
-					nearest_distance = utils.DistanceTo(&body_screen, &mouse_coords_vec)
+					nearest_distance = rl.Vector2Distance(body_screen, mouse_coords_vec)
 				} else {
-					body_distance := utils.DistanceTo(&body_screen, &mouse_coords_vec)
+					body_distance := rl.Vector2Distance(body_screen, mouse_coords_vec)
 					if body_distance < nearest_distance {
 						nearest_distance = body_distance
 						nearest = body
@@ -310,12 +316,11 @@ func run() {
 			}
 		}
 
-
 		// Speed sim up or down
-		if win.Pressed(pixelgl.KeyKPAdd) {
+		if rl.IsKeyPressed(rl.KeyKpAdd){
 			universe.sec_per_tick += 1
 		}
-		if win.Pressed(pixelgl.KeyKPSubtract) {
+		if rl.IsKeyPressed(rl.KeyKpSubtract) {
 			universe.sec_per_tick -= 1
 			if universe.sec_per_tick == 0 {
 				universe.sec_per_tick = 1
@@ -323,23 +328,22 @@ func run() {
 		}
 
 		// magnitude in/out
-		universe.scale *= math.Pow(1.2, win.MouseScroll().Y)
+		universe.scale *= fmath.Pow(1.2, float32(rl.GetMouseWheelMove()))
+		camera.Zoom += float32(rl.GetMouseWheelMove()) * 0.05
+		fmt.Print(camera.Zoom)
+		// rl.DrawRectangle(-6000, 320, 13000, 8000, rl.DarkGray)
 
-		win.Clear(colornames.Black)
 
 		if follow_body >= 0 && follow_body < len(universe.bodies) {
-			offset = vec2.T{center[0], center[1]}
+			offset = rl.Vector2{X: center.X, Y: center.Y}
 			follow_body_position := universe.universe_to_screen(&universe.bodies[follow_body].Position)
-			offset.Sub(&follow_body_position)
+			offset = rl.Vector2Subtract(offset, follow_body_position)
 		}
 		if len(universe.bodies) <= 0 {
 			fmt.Println("There are no more bodies, ending sim...")
 			os.Exit(3)
 		}
 
-		imd := imdraw.New(nil)
-
-		// batch := pixel.NewBatch(&pixel.TrianglesData{}, )
 		// Actually drawing
 		// in goroutines the expensive stuff
 		wait_group := sync.WaitGroup{}
@@ -352,65 +356,62 @@ func run() {
 			body_radius_scaled *= universe.magnitude * universe.scale
 
 			screen_position := universe.universe_to_screen(&body.Position)
-			screen_position.Add(&offset)
+			screen_position = rl.Vector2Add(screen_position,offset)
 			go func(i int) {
 				planet := universe.bodies[i]
-				imd.Color = utils.ColorKeyToColor(planet.Color)
-				imd.Push(pixel.V(float64(screen_position[0]), float64(screen_position[1])))
-				imd.Circle(float64(body_radius_scaled), 0)
-
+				rl.DrawCircle(int32(screen_position.X), int32(screen_position.Y), planet.Radius, utils.ColorKeyToColor(planet.Color))
 				wait_group.Done()
 			}(i)
 			wait_group.Wait()
-			imd.Draw(win)
 		}
-		imd.Reset()
+		rl.EndMode2D()
 
-		// Update info text
-		infoTxt.Clear()
-		fmt.Fprintf(infoTxt, "N:\t%v\n", len(universe.bodies))
-		fmt.Fprintf(infoTxt, "t:\t%v\n", universe.universe_time())
-		fmt.Fprintf(infoTxt, "S:\t%4.2f\n", universe.scale)
-		fmt.Fprintf(infoTxt, "dt:\t%v\n", universe.sec_per_tick)
+		// // Update info text
+		// infoTxt.Clear()
+		// fmt.Fprintf(infoTxt, "N:\t%v\n", len(universe.bodies))
+		// fmt.Fprintf(infoTxt, "t:\t%v\n", universe.universe_time())
+		// fmt.Fprintf(infoTxt, "S:\t%4.2f\n", universe.scale)
+		// fmt.Fprintf(infoTxt, "dt:\t%v\n", universe.sec_per_tick)
 
-		// Clicked-on body info
-		if nearest != nil {
-			nearest_position := universe.universe_to_screen(&nearest.Position)
-			nearest_position.Add(&offset)
+		// // Clicked-on body info
+		// if nearest != nil {
+		// 	nearest_position := universe.universe_to_screen(&nearest.Position)
+		// 	nearest_position.Add(&offset)
 
-			imd := imdraw.New(nil)
-			imd.Color = colornames.Red
-			imd.EndShape = imdraw.SharpEndShape
+		// 	imd := imdraw.New(nil)
+		// 	imd.Color = colornames.Red
+		// 	imd.EndShape = imdraw.SharpEndShape
 
-			velocity := nearest.Velocity.Scale(1000)
-			end_velocity := nearest_position.Add(velocity)
+		// 	velocity := nearest.Velocity.Scale(1000)
+		// 	end_velocity := nearest_position.Add(velocity)
 
-			// velocity
-			imd.Push(pixel.V(nearest_position[0], nearest_position[1]), pixel.V(end_velocity[0], end_velocity[1]))
-			imd.Line(2)
-			imd.Draw(win)
+		// 	// velocity
+		// 	imd.Push(pixel.V(nearest_position.X, nearest_position.Y), pixel.V(end_velocity.X, end_velocity.Y))
+		// 	imd.Line(2)
+		// 	imd.Draw(win)
 
-			// acceleration
-			imd.Color = colornames.Green
-			acc := nearest.Acceleration.Scale(40)
-			endAcc := nearest.Position.Add(acc)
-			imd.Push(pixel.V(nearest_position[0], nearest_position[1]), pixel.V(endAcc[0], endAcc[1]))
-			imd.Line(2)
-			imd.Draw(win)
+		// 	// acceleration
+		// 	imd.Color = colornames.Green
+		// 	acc := nearest.Acceleration.Scale(40)
+		// 	endAcc := nearest.Position.Add(acc)
+		// 	imd.Push(pixel.V(nearest_position.X, nearest_position.Y), pixel.V(endAcc.X, endAcc.Y))
+		// 	imd.Line(2)
+		// 	imd.Draw(win)
 
-			fmt.Fprintf(infoTxt, "\n%v:\n", nearest.Name)
-			fmt.Fprintf(infoTxt, "P: (%5.2e,%5.2e)\n", nearest.Position[0], nearest.Position[1])
-			fmt.Fprintf(infoTxt, "V: (%5.2e,%5.2e)\n", nearest.Velocity[0], nearest.Velocity[1])
-			fmt.Fprintf(infoTxt, "A: (%5.2e,%5.2e)\n", nearest.Acceleration[0], nearest.Acceleration[1])
-		}
-		infoTxt.Draw(win, pixel.IM.Scaled(infoTxt.Orig, universe.magnitude))
-		// imd.Reset()
-		win.Update()
+		// 	fmt.Fprintf(infoTxt, "\n%v:\n", nearest.Name)
+		// 	fmt.Fprintf(infoTxt, "P: (%5.2e,%5.2e)\n", nearest.Position.X, nearest.Position.Y)
+		// 	fmt.Fprintf(infoTxt, "V: (%5.2e,%5.2e)\n", nearest.Velocity.X, nearest.Velocity.Y)
+		// 	fmt.Fprintf(infoTxt, "A: (%5.2e,%5.2e)\n", nearest.Acceleration.X, nearest.Acceleration.Y)
+		// }
+		// infoTxt.Draw(win, pixel.IM.Scaled(infoTxt.Orig, universe.magnitude))
+		// // imd.Reset()
+		rl.EndDrawing()
 		universe.tick()
 	}
+	rl.CloseWindow()
 }
 
 func main() {
-	pixelgl.Run(run)
+	run()
 
 }
